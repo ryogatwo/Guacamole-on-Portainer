@@ -105,8 +105,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | egrep "guacamol
 Confirm schema tables exist:
 
 ```bash
-docker exec -it $(docker ps --format "{{.Names}}" | grep -i postgres | head -n 1) \
-  psql -U guacamole_user -d guacamole_db -c "\dt" | head -n 20
+docker exec -it $(docker ps --format "{{.Names}}" | grep -i postgres | head -n 1) psql -U guacamole_user -d guacamole_db -c "\dt" | head -n 20
 ```
 
 You should see `guacamole_*` tables.
