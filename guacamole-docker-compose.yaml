@@ -1,0 +1,113 @@
+version: "2.4"
+
+# ============================================================
+# Apache Guacamole (guacamole + guacd + postgres) for Portainer
+# Ubuntu x64 / Docker / Portainer Stack
+#
+# Host schema file requirement (MUST exist on the Docker host):
+#   /opt/guacamole/initdb/initdb.sql
+#
+# This stack mounts that host-generated PostgreSQL schema file into Postgres:
+#   /opt/guacamole/initdb/initdb.sql  ->  /docker-entrypoint-initdb.d/initdb.sql
+#
+# IMPORTANT:
+# - Postgres ONLY runs init scripts on first initialization (empty data dir).
+#   If you redeploy using the SAME guac_db volume, the schema won't re-run.
+#
+# ------------------------------------------------------------
+# Portainer Stack Environment Variables to create:
+#
+# REQUIRED (must set):
+#   POSTGRES_PASSWORD        = strong password for the DB user
+#
+# RECOMMENDED (set explicitly so you don't rely on defaults):
+#   GUACAMOLE_HTTP_PORT      = 8080   (use 8081/8082/etc for additional stacks)
+#   POSTGRES_DB              = guacamole_db
+#   POSTGRES_USER            = guacamole_user
+#
+# OPTIONAL (pin images / versions):
+#   POSTGRES_IMAGE           = postgres:16
+#   GUACAMOLE_IMAGE          = guacamole/guacamole:latest
+#   GUACD_IMAGE              = guacamole/guacd:latest
+#
+# Notes:
+# - The default Guacamole login created by the schema is:
+#     guacadmin / guacadmin
+#   Change it after first login.
+# ============================================================
+
+services:
+  guacd:
+    # OPTIONAL env var: GUACD_IMAGE
+    image: ${GUACD_IMAGE:-guacamole/guacd:latest}
+    restart: unless-stopped
+    networks: [guacnet]
+
+  postgres:
+    # OPTIONAL env var: POSTGRES_IMAGE
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: unless-stopped
+    networks: [guacnet]
+
+    environment:
+      # RECOMMENDED env vars (can rely on defaults if you want, but better to set):
+      POSTGRES_DB: ${POSTGRES_DB:-guacamole_db}
+      POSTGRES_USER: ${POSTGRES_USER:-guacamole_user}
+
+      # REQUIRED env var (must be set in Portainer):
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      # Named volume for persistent DB data (created by Docker)
+      - guac_db:/var/lib/postgresql/data
+
+      # Host-generated Guacamole schema SQL (must exist on the Docker host)
+      # Create it once with:
+      #   sudo mkdir -p /opt/guacamole/initdb
+      #   sudo docker run --rm guacamole/guacamole:latest /opt/guacamole/bin/initdb.sh --postgresql \
+      #     | sudo tee /opt/guacamole/initdb/initdb.sql >/dev/null
+      - /opt/guacamole/initdb/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  guacamole:
+    # OPTIONAL env var: GUACAMOLE_IMAGE
+    image: ${GUACAMOLE_IMAGE:-guacamole/guacamole:latest}
+    restart: unless-stopped
+    networks: [guacnet]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+
+    ports:
+      # RECOMMENDED env var: GUACAMOLE_HTTP_PORT
+      - "${GUACAMOLE_HTTP_PORT:-8080}:8080"
+
+    environment:
+      # guacd (internal docker network)
+      GUACD_HOSTNAME: guacd
+      GUACD_PORT: "4822"
+
+      # Postgres (internal docker network)
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_PORT: "5432"
+
+      # RECOMMENDED to set these env vars in Portainer (or defaults used):
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-guacamole_db}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-guacamole_user}
+
+      # REQUIRED: must match POSTGRES_PASSWORD above
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
+
+networks:
+  guacnet:
+
+volumes:
+  guac_db:
