@@ -32,10 +32,7 @@ It uses a **host-generated schema file** to initialize the DB on first start:
 Run this on the Ubuntu host:
 
 ```bash
-sudo mkdir -p /opt/guacamole/initdb && \
-sudo docker run --rm guacamole/guacamole:latest /opt/guacamole/bin/initdb.sh --postgresql \
-  | sudo tee /opt/guacamole/initdb/initdb.sql >/dev/null && \
-ls -lh /opt/guacamole/initdb/initdb.sql
+sudo mkdir -p /opt/guacamole/initdb && sudo docker run --rm guacamole/guacamole:latest /opt/guacamole/bin/initdb.sh --postgresql | sudo tee /opt/guacamole/initdb/initdb.sql >/dev/null && ls -lh /opt/guacamole/initdb/initdb.sql
 ```
 
 Expected result: you should see `initdb.sql` created (about ~24 KB).
