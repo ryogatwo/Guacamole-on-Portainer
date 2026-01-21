@@ -173,3 +173,18 @@ Once deployed and working:
 3. Save it as a Custom Template for future deployments
 
 ---
+
+
+
+### One practical follow-up
+
+If you ever see login weirdness, check DB health first:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}" | egrep "guacamole|postgres|guacd"
+```
+
+If `postgres` is **healthy** and Guacamole is **up**, a `docker restart guacamole-guacamole-1` is a safe first move.
+
+
+
